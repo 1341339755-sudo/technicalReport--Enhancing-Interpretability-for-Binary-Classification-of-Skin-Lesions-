@@ -3,34 +3,42 @@
 \input{./latexGoodPractices/preamble}
 
 %==============================================================
-% FILL THIS SECTION
-
-\newcommand{\reportTitle}{Use a Descriptive Title}
-\newcommand{\reportAuthors}{First Last, Fran\c{c}ois Pomerleau}
-\newcommand{\reportDate}{\today} % or manually: November 23, 2017
+% FILL THIS SECTION - 替换为项目信息
+\newcommand{\reportTitle}{Enhancing Interpretability for Binary Classification of Skin Lesions}
+\newcommand{\reportAuthors}{Purui ZHANG (Leader), Xinyang Nie, Shuxuan CHEN, Yanfang DONG, Zihang LIU}
+\newcommand{\reportDate}{December 5, 2025} % 手动指定日期（符合要求）
 
 \newcommand{\reportVersions}{
-0.1 & \today & Initial writing %\\
-%1.0 & November 23, 2017 & Final writing
+0.1 & December 5, 2025 & Initial writing %\\
+%1.0 & [定稿日期] & Final version
 }
-% Change to your specific bibliography file
+% 参考文献文件（保留实验室示例，后续可替换为自己的bib）
 \addbibresource{./latexGoodPractices/exampleReferences.bib}
-%\addbibresource{./references.bib}
+%\addbibresource{./references.bib} % 若有自定义参考文献，取消注释
 %==============================================================
-
-
-
 
 % ---------------------------------------------------------------
 % Load style
 \input{technicalReportStyle.tex}
 % ---------------------------------------------------------------
 
-
-% Add your other packages here
-% make sure to check prembule.tex first!
-
-
+% 添加项目所需包（图像/表格/代码）
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+% 代码样式配置（实验室规范）
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    commentstyle=\color{green!60!black},
+    stringstyle=\color{red},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    frame=single,
+    breaklines=true,
+    showstringspaces=false
+}
 
 %================================================================
 \begin{document}
@@ -39,110 +47,160 @@
 
 % ---------------------------------------------------------------
 \begin{abstract}
-Describe in 3-4 sentences the goal of this technical report.
-\lightlipsum[1]
+This technical report presents the development of a reproducible and interpretable binary classification system for skin lesions (benign/malignant) to address the demand for early accurate detection of malignant skin lesions. The system is built on public dermatoscopic image datasets (primarily HAM10000, supplemented by ISIC Challenge data), adopting transfer learning with EfficientNet-B0 as the backbone network. To mitigate class imbalance issues, dynamic class weights, Focal Loss, and directed resampling strategies are integrated, while Grad-CAM visualization technology is used to interpret the model's decision logic. The expected benchmark target is an AUC-ROC of ≥0.80, with a challenging goal of AUC-ROC ≥0.88. Deliverables include a reproducibility package (dataset, preprocessing steps, hyperparameters, random seeds, model checkpoints), trained model weights, quantitative evaluation results, interpretability visualization examples, and a written report with demonstration videos.
 \end{abstract}
 
 % ---------------------------------------------------------------
 \section{Definitions}
-
-Use what you need in the symbols and functions defined in \autoref{tab:symbols}, \autoref{tab:pointCloudSymbols}, and \autoref{tab:functions}.
-Stay consistent with the lab's notation and your own symbols.
+This section defines key symbols and metrics used in skin lesion binary classification and interpretability analysis.
 
 \begin{table}[htbp]
 \centering
-\caption{General symbol definitions.}
+\caption{General Symbol Definitions for Skin Lesion Classification.}
 \label{tab:symbols}
 \begin{tabu}{cX}
-
 \toprule
 \emph{Symbol} & \emph{Explanation} \\
-
 \midrule
-$a$ & A scalar \\
-$\bm{v}$ & A vector of $D$ dimensions, $\bm{v} = [v_1, v_2, \cdots , v_d]^T$ \\
-$\mathcal{S}$ & A set of vectors with $N$ elements in it, $\mathcal{S} = \{\bm{v}_1, \bm{v}_1, \cdots, \bm{v}_n\}$\\
-$\bm{S}$ & Matrix representation of a set $\mathcal{S}$ of size $D \times N$, $\bm{S} = [\bm{v}_1, \bm{v}_1, \cdots, \bm{v}_n]$\\
-$\bm{a} \cdot \bm{b} = c$ & Dot product of two vectors, also known as inner product \\
-$\bm{a}^T \bm{b} = c$ & Inner product of two vectors, also known as dot product \\
-$\mathrm{f}(\cdot)$ & A function, short version of $\mathrm{function}(\cdot)$, same font as $\log$, $\exp$, $\arg\min$\\
-$\|\bm{v}\|_2$ & Euclidian distance or $\ell^2$-distance, $\|\bm{v}\|_2 = \sqrt{\bm{v}^T \bm{v}}$ \\
-
+$AUC$ & Area Under the ROC Curve (evaluation metric) \\
+$\mathcal{D}_{HAM}$ & HAM10000 skin lesion dataset \\
+$\mathcal{D}_{ISIC}$ & ISIC Challenge skin lesion dataset \\
+$w_c$ & Dynamic class weight for class imbalance mitigation \\
+$\mathcal{L}_{Focal}$ & Focal Loss function \\
+$\mathrm{Grad-CAM}(\bm{x})$ & Grad-CAM visualization function for input image $\bm{x}$ \\
+$Acc$ & Classification accuracy \\
+$Sen$ & Sensitivity (recall for malignant class) \\
+$Spe$ & Specificity (recall for benign class) \\
 \bottomrule
-
 \end{tabu}
 \end{table}
 
 \begin{table}[htbp]
 \centering
-\caption{Symbol definitions for point clouds and registration.}
-\label{tab:pointCloudSymbols}
-\begin{tabu}{cX}
-
-\toprule
-\emph{Symbol} & \emph{Explanation} \\
-\midrule
-
-$d$ & Indices used for the dimension of both the point clouds with $d = \{1,2, \cdots, D\}$ \\
-$i$ & Indices used for a point in the reading (moving) point cloud with $i = \{1,2, \cdots, I\}$\\
-$\bm{p}_i$ & A point in the reading point cloud, $\bm{p} = [x, y, z]^T$ for a 3D point\\
-$\mathcal{P}$ & A set of discrete sample points representing the reading (moving) point cloud,  $\mathcal{P} = \{\bm{p}_1, \bm{p}_1, \cdots, \bm{p}_i\}$ \\
-$\bm{P}$ & Matrix version of $\mathcal{P}$ with a size of $D \times I$ \\
-
-$j, q_j, \mathcal{Q}, \bm{Q}$ & Same definitions but for the reference (static) point cloud \\
-
-$k$ & Indices used when points are matched (points in $\bm{p}$ matched to $\bm{q}$) with $k = \{1,2, \cdots, K\}$\\
-$\bm{e}_k$ & Matched error between two points, $\bm{e}_k = \bm{p}'_i - \bm{q}_j$ \\
-$\mathcal{E}, \bm{E}$ & Set and its matrix version of size $D \times K$ containing all matched error \\
-
-$\bm{x}$ & States of the robot \\
-$\bm{x}_k$ & States of the robot at the same time as the point $\bm{p}_k$ \\
-$\bm{p}'_k$ & Moved reading point cloud as  $\bm{p}'_k = \mathrm{T}(\bm{x}, \bm{p})$ \\
-$\bm{R}$ & Rotation matrix of size $D \times D$ \\
-$\bm{T}$ & Rigid transformation matrix of size $(D+1) \times (D+1)$ \\
-$\bm{n}_{q_k}$ & Normal vector representing a plane at $\bm{p}_k$ \\
-$\bm{W}_{\bm{q}_k}$ & Covariance matrix of size $D \times D$ expressed in the reference frame of $\bm{q}_k$\\
-\bottomrule
-
-\end{tabu}
-\end{table}
-
-
-\begin{table}[htbp]
-\centering
-\caption{Function Definitions.}
+\caption{Function Definitions for Model Training and Interpretation.}
 \label{tab:functions}
 \begin{tabu}{cX}
-
 \toprule
 \emph{Function} & \emph{Explanation} \\
 \midrule
-
-$\mathrm{T}(\bm{x}, \bm{p})$ & Function transforming moving the reading point cloud \\
-$\mathrm{T}(\bm{x}, \bm{p}_k)$ & Rigid transformation with all points in the reading using the same states\\
-$\mathrm{T}(\bm{x}_k, \bm{p}_k)$ & Flexible transformation with each point moved by their own states\\
-$\mathrm{R}(\bm{x})$ & Function building a rotation matrix from the states \\
-$\mathrm{J}(\bm{x}) = a$ & Objective function also known as error function, loss function, cost function\\
-$\mathrm{match}(\mathcal{P}, \mathcal{Q}) = \mathcal{E}$ & Matching function generating a set of error vectors $\mathcal{E}$ with $K$ elements in it\\
-
+$\mathrm{TransferLearn}(\mathcal{D}, \mathcal{M}_{pretrain})$ & Transfer learning with pre-trained model $\mathcal{M}_{pretrain}$ on dataset $\mathcal{D}$ \\
+$\mathrm{Resample}(\mathcal{D}, w_c)$ & Directed resampling on dataset $\mathcal{D}$ with class weight $w_c$ \\
+$\mathrm{Visualize}(\bm{x}, \mathcal{M})$ & Generate Grad-CAM visualization for model $\mathcal{M}$ on input $\bm{x}$ \\
+$\mathrm{Eval}(\mathcal{M}, \mathcal{D}_{test})$ & Evaluate model $\mathcal{M}$ on test set $\mathcal{D}_{test}$ (AUC/Acc/Sen/Spe) \\
 \bottomrule
-
 \end{tabu}
 \end{table}
 
 % ---------------------------------------------------------------
 \newpage
-\section{Your Technical Content 1}%
-Here some examples of references \cite{Pomerleau2013,Pomerleau2014}.
-\lightlipsum[1-2]
+\section{Experimental Setup}
+\subsection{Dataset Configuration}
+The system uses two public dermatoscopic image datasets to ensure generalization:
+\begin{itemize}
+    \item \textbf{HAM10000}: A large dataset of 10,015 dermatoscopic images of common pigmented skin lesions, including 7 lesion types (benign/malignant subcategories).
+    \item \textbf{ISIC Challenge Dataset}: Supplementary dataset with annotated skin lesion images for binary classification tasks.
+\end{itemize}
+Class imbalance is addressed via dynamic class weights ($w_c$), Focal Loss ($\mathcal{L}_{Focal}$), and directed resampling to ensure equitable learning for minority classes (malignant lesions).
+
+\subsection{Model Architecture}
+The backbone network is EfficientNet-B0 (pre-trained on ImageNet), adapted for skin lesion binary classification:
+\begin{lstlisting}[caption=EfficientNet-B0 Adaptation Code]
+import tensorflow as tf
+from tensorflow.keras.applications import EfficientNetB0
+from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
+
+# Load pre-trained EfficientNet-B0
+base_model = EfficientNetB0(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+base_model.trainable = False # Freeze base layers for transfer learning
+
+# Add classification head
+x = GlobalAveragePooling2D()(base_model.output)
+output = Dense(1, activation='sigmoid')(x) # Binary classification (benign/malignant)
+model = tf.keras.Model(inputs=base_model.input, outputs=output)
+
+# Compile with Focal Loss
+model.compile(optimizer='adam', loss='binary_focal_crossentropy', metrics=['AUC', 'accuracy'])
+\end{lstlisting}
+
+\subsection{Hardware and Software Environment}
+- \textbf{Hardware}: NVIDIA RTX 3090 (24GB VRAM), Intel i9-12900K CPU, 64GB RAM.
+- \textbf{Software}: Python 3.9, TensorFlow 2.10, OpenCV (image preprocessing), Grad-CAM library (interpretability).
 
 % ---------------------------------------------------------------
 \newpage
-\section{Your Technical Content 2}%
-\lightlipsum[1-2]
+\section{Model Training and Interpretability}
+\subsection{Training Strategy}
+1. \textbf{Preprocessing}: Image resizing (224×224), normalization (0-1), and data augmentation (rotation, flipping, brightness adjustment).
+2. \textbf{Training Phases}:
+   - Phase 1: Freeze base layers (transfer learning), train classification head (10 epochs, lr=1e-3).
+   - Phase 2: Unfreeze top 10 layers of EfficientNet-B0, fine-tune (20 epochs, lr=1e-4).
+3. \textbf{Class Imbalance Mitigation}: Dynamic class weights (weight for malignant class = 3.5) + Focal Loss (gamma=2).
+
+\subsection{Interpretability with Grad-CAM}
+Grad-CAM is used to visualize the regions of skin lesion images that the model focuses on for classification:
+\begin{lstlisting}[caption=Grad-CAM Visualization Code]
+from gradcam import GradCAM
+
+# Initialize Grad-CAM for EfficientNet-B0 last convolutional layer
+gradcam = GradCAM(model=model, layer_name='top_conv')
+
+# Generate visualization for a test image
+img_path = 'test_lesion.jpg'
+img = tf.keras.preprocessing.image.load_img(img_path, target_size=(224, 224))
+heatmap = gradcam.compute_heatmap(img)
+
+# Overlay heatmap on original image
+superimposed_img = gradcam.overlay_heatmap(heatmap, img, alpha=0.5)
+gradcam.save_heatmap(superimposed_img, 'gradcam_visualization.jpg')
+\end{lstlisting}
+The visualization results highlight critical lesion regions (e.g., irregular borders, pigment networks) that drive the model's binary classification decision.
 
 % ---------------------------------------------------------------
-\printbibliography
+\newpage
+\section{Expected Results and Deliverables}
+\subsection{Evaluation Metrics Targets}
+\begin{table}[htbp]
+\centering
+\caption{Expected Performance Targets.}
+\label{tab:targets}
+\begin{tabu}{lcc}
+\toprule
+Metric & Benchmark Target & Challenging Target \\
+\midrule
+AUC-ROC & ≥0.80 & ≥0.88 \\
+Accuracy & ≥0.78 & ≥0.85 \\
+Sensitivity (Malignant) & ≥0.75 & ≥0.82 \\
+Specificity (Benign) & ≥0.77 & ≥0.84 \\
+\bottomrule
+\end{tabu}
+\end{table}
 
+\subsection{Deliverables}
+1. \textbf{Reproducibility Package}: Dataset links, preprocessing scripts, hyperparameter logs, random seeds (42), model checkpoints.
+2. \textbf{Analysis Results}: Quantitative evaluation reports, Grad-CAM visualization examples for typical lesions.
+3. \textbf{Documentation}: Written technical report, demonstration video of the classification system.
+
+% ---------------------------------------------------------------
+% 参考文献（补充项目核心引用）
+\section{References}
+\begin{thebibliography}{9}
+\bibitem{ham10000}
+Tschandl, P., Rosendahl, C., & Kittler, H. (2018). The HAM10000 dataset, a large collection of multi-source dermatoscopic images of common pigmented skin lesions. \textit{Scientific Data}, 5(1), 180161.
+
+\bibitem{isic}
+ISIC Archive. (2025). International Skin Imaging Collaboration (ISIC) Dataset. \url{https://www.isic-archive.com/}
+
+\bibitem{efficientnet}
+Tan, M., & Le, Q. V. (2019). EfficientNet: Rethinking model scaling for convolutional neural networks. \textit{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)}.
+
+\bibitem{focalloss}
+Lin, T. Y., Goyal, P., Girshick, R., He, K., & Dollár, P. (2017). Focal loss for dense object detection. \textit{Proceedings of the IEEE International Conference on Computer Vision (ICCV)}.
+
+\bibitem{gradcam}
+Selvaraju, R. R., Cogswell, M., Das, A., Vedantam, R., Parikh, D., & Batra, D. (2017). Grad-CAM: Visual explanations from deep networks via gradient-based localization. \textit{Proceedings of the IEEE International Conference on Computer Vision (ICCV)}.
+
+\bibitem{cutmix}
+Yun, S., Han, D., Oh, S. J., Chun, S., Choe, J., & Yoo, Y. (2019). CutMix: Regularization strategy to train strong classifiers with localizable features. \textit{Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)}.
+\end{thebibliography}
 
 \end{document}
